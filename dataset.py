@@ -31,7 +31,9 @@ def StackData(person_data):
                 h,w,d = img_data.shape
                 img_data.shape = [h,w,d,1]
             else:
-                continue
+                img_data = np.mean(img_data.astype(np.float32), axis=3)
+                h,w,d = img_data.shape
+                img_data.shape = [h,w,d,1]
             #print(img_data.shape)
             channels.append(img_data.astype(np.float32))
     channels = np.concatenate(channels, axis=3)
@@ -96,7 +98,7 @@ def Visualize(person_data):
         groundtruth = 'OT' in normlize_data.keys()
         if groundtruth:
             gt = (normlize_data['OT'][:,:, i]>128).astype(np.uint8)
-            _,contours,_ = cv2.findContours(gt.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+            contours,_ = cv2.findContours(gt.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         imgs = {}
         for img_type, img_data in normlize_data.items():
             if len(img_data.shape) == 3:
@@ -122,6 +124,7 @@ class ISLESDataset(Dataset):
         label_list = [data[1] for data in data_list]
         data_list = [data[0] for data in data_list]
         data_list,means,norm = Normalize(data_list, means, norm)
+        self.folders = folders
         self.label_list = label_list
         self.data_list = data_list
         self.sample_shape = sample_shape
@@ -136,9 +139,11 @@ class ISLESDataset(Dataset):
         volume = self.data_list[index]
         label = self.label_list[index]
         if self.is_train:
+            assert(label is not None)
             volume,label = SampleVolume(volume, label, self.sample_shape)
         volume = torch.Tensor(volume.copy()).permute(3,2,0,1) # H,W,D,C -> C,D,H,W
-        label = torch.Tensor(label.copy()).permute(2,0,1) # H,W,D -> D,H,W
+        if label is not None:
+            label = torch.Tensor(label.copy()).permute(2,0,1) # H,W,D -> D,H,W
         return volume, label
 
     def train(self):
@@ -164,6 +169,6 @@ def test_dataset():
         print(volume.shape, label.shape)
 
 if __name__ == '__main__':
-    #test_visulize()
-    test_dataset()
+    test_visulize()
+    #test_dataset()
 

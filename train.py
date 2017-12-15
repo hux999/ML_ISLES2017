@@ -7,9 +7,9 @@ import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 from torch.autograd import Variable
 
-from vox_resnet import VoxResNet
+from vox_resnet import VoxResNet_V0, VoxResNet_V1
 from dataset import ISLESDataset
-from evaluate import EvalPrecision,EvalRecall
+from evaluator import EvalPrecision,EvalRecall
 
 class CollateFn:
     def __init__(self):
@@ -41,8 +41,12 @@ def Evaluate(net, dataset, use_cuda):
         label = label>0
         for evaluator in evaluators:
             evaluator.AddResult(predict, label)
+    values = []
     for evaluator in evaluators:
-        print('%s, %f' % (type(evaluator).__name__, evaluator.Eval()))
+        eval_value = evaluator.Eval()
+        print('%s, %f' % (type(evaluator).__name__, eval_value))
+        values.append(eval_value)
+    return values
 
 
 def Train(train_data, val_data, net, num_epoch=2000, lr=0.01, use_cuda=True):
@@ -51,6 +55,7 @@ def Train(train_data, val_data, net, num_epoch=2000, lr=0.01, use_cuda=True):
     #net_ = torch.nn.DataParallel(net, device_ids=use_cuda)
     net_ = net
     optimizer = torch.optim.Adam(net.parameters(), lr=lr)
+    max_fscore = 0
     for i_epoch in range(num_epoch):
         # train
         net_.train()
@@ -74,27 +79,32 @@ def Train(train_data, val_data, net, num_epoch=2000, lr=0.01, use_cuda=True):
         print(('epoch:%d, loss:%f')  % (i_epoch, loss.data[0]))
 
         # save model for each epoch
-        #torch.save(net.state_dict(), ('epoch_%d.pt' % i_epoch))
+        if i_epoch % 100 == 0:
+            torch.save(net.state_dict(), ('model/epoch_%d.pt' % i_epoch))
 
         # test
         if i_epoch % 10 == 0:
             print('val')
-            Evaluate(net, val_data, use_cuda)
+            values = Evaluate(net, val_data, use_cuda)
             print('train')
             Evaluate(net, train_data, use_cuda)
-
+            fscore = 2.0*(values[0]*values[1])/(values[0]+values[1])
+            print('fscore %f' % fscore, max_fscore)
+            if fscore > max_fscore:
+                max_fscore = fscore
+                torch.save(net.state_dict(), 'model/max_fscore.pt')
 
 def GetDataset():
     data_root = './data/train'
     folders = [ os.path.join(data_root, folder) for folder in sorted(os.listdir(data_root)) ] 
-    train_dataset = ISLESDataset(folders[:40], is_train=True)
+    train_dataset = ISLESDataset(folders[:40], is_train=True, sample_shape=(96,96,7))
     val_dataset = ISLESDataset(folders[40:], means=train_dataset.means, 
         norm=train_dataset.norm, is_train=False)
     return train_dataset, val_dataset
 
 if __name__ == '__main__':
     train_dataset, val_dataset = GetDataset()
-    net = VoxResNet(6, 1)
+    net = VoxResNet_V1(7, 1)
 
     Train(train_dataset, val_dataset, net,
         num_epoch=2000, lr=0.0001, use_cuda=True)
