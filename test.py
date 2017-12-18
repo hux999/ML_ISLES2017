@@ -36,9 +36,12 @@ def GetSMIR_ID(data_root):
 
 def Cvt2Nii(predict, folder):
     # refer to https://www.smir.ch/Content/scratch/isles/nibabel_copy_header.py
+    predict = predict.astype(np.uint8)
     nii_data = LoadADC(folder)
+    print(nii_data.shape, predict.shape)
+    nii_data.set_data_dtype(np.dtype(np.uint8))
     nii_data.get_data()[...] = predict
-    nii_data.set_data_dtype(np.uint8)
+    #nii_data.get_data()[:] = 1
     return nii_data
 
 def Evaluate(net, dataset, use_cuda):
@@ -53,15 +56,20 @@ def Evaluate(net, dataset, use_cuda):
         if use_cuda:
             volume = volume.cuda()
         predict = net(volume.unsqueeze(0))
-        predict = predict.data.squeeze().permute(1,2,0) # D,H,W -> H,W,D
+        #predict = predict.data.squeeze().permute(2,1,0) # D,H,W -> W,H,D 
+        predict = predict.data.squeeze().permute(1,2,0) # D,H,W -> H,W,D 
         predict = predict>0 # 0 for background, 1 for foreground
         predict = predict.cpu().numpy()
         nii_data = Cvt2Nii(predict, folder)
-        nib.save(nii_data, './result/SMIR.result.%s.nii' % GetSMIR_ID(folder))
+        nib.save(nii_data, './result/SMIR.3DCNN.%s.nii' % GetSMIR_ID(folder))
+        predict = nii_data.get_data()
+        '''
         for i in range(predict.shape[2]):
         	pred = predict[:, :, i].astype(np.uint8)
         	cv2.imshow('pred', pred*255)
-        	cv2.waitKey(100)
+        	cv2.waitKey()
+        '''
+        
 
 def GetTestData():
     train_dataset,_ = GetDataset()
