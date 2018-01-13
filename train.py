@@ -8,8 +8,11 @@ from torch.utils.data import Dataset, DataLoader
 from torch.autograd import Variable
 
 from vox_resnet import VoxResNet_V0, VoxResNet_V1
+from refine_net import RefineNet
 from dataset import ISLESDataset
 from evaluator import EvalPrecision,EvalRecall
+
+from FocalLoss import FocalLoss
 
 class CollateFn:
     def __init__(self):
@@ -24,7 +27,14 @@ class CollateFn:
         return torch.stack(volume_list), torch.stack(label_list)
 
 def SegLoss(predict, label):
-    loss = F.binary_cross_entropy_with_logits(predict.squeeze(), label)
+    if False:
+        loss = F.binary_cross_entropy_with_logits(predict.squeeze(), label)
+    else:
+        predict = predict.permute(0, 2, 3, 4, 1).contiguous()
+        predict = predict.view(-1, 2)
+        label = label.view(-1)
+        loss = FocalLoss(2)(predict, label.long())
+        #loss = F.cross_entropy(predict, label.long())
     return loss
 
 def Evaluate(net, dataset, use_cuda):
@@ -37,7 +47,8 @@ def Evaluate(net, dataset, use_cuda):
             volume = volume.cuda()
             label = label.cuda()
         predict = net(volume.unsqueeze(0))
-        predict = predict.data>0
+        predict = F.softmax(predict, dim=1)[:, 1, :, :, :]
+        predict = predict.data>0.5
         label = label>0
         for evaluator in evaluators:
             evaluator.AddResult(predict, label)
@@ -83,12 +94,12 @@ def Train(train_data, val_data, net, num_epoch=2000, lr=0.01, use_cuda=True):
             torch.save(net.state_dict(), ('model/epoch_%d.pt' % i_epoch))
 
         # test
-        if i_epoch % 10 == 0:
+        if i_epoch % 20 == 0:
             print('val')
             values = Evaluate(net, val_data, use_cuda)
             print('train')
             Evaluate(net, train_data, use_cuda)
-            fscore = 2.0*(values[0]*values[1])/(values[0]+values[1])
+            fscore = 2.0*(values[0]*values[1])/(values[0]+values[1]+0.001)
             print('fscore %f' % fscore, max_fscore)
             if fscore > max_fscore:
                 max_fscore = fscore
@@ -104,7 +115,8 @@ def GetDataset():
 
 if __name__ == '__main__':
     train_dataset, val_dataset = GetDataset()
-    net = VoxResNet_V1(7, 1)
+    #net = VoxResNet_V1(7, 1)
+    net = RefineNet(7,2)
 
     Train(train_dataset, val_dataset, net,
-        num_epoch=2000, lr=0.0001, use_cuda=True)
+        num_epoch=3000, lr=0.0001, use_cuda=True)

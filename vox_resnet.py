@@ -20,35 +20,41 @@ class VoxRex(nn.Module):
 
 class VoxResNet(nn.Module):
     ''' base backend '''
-    def __init__(self, in_channels, num_classes):
+    def __init__(self, in_channels, num_classes, ftrlen=[32,64,64,64]):
         super(VoxResNet, self).__init__()
+        ftr1,ftr2,ftr3,ftr4 = ftrlen
+        # stage 1
         self.conv1_1 = nn.Sequential(
-            nn.Conv3d(in_channels, 32, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm3d(32),
+            nn.Conv3d(in_channels, ftr1, kernel_size=3, padding=1, bias=False),
+            nn.BatchNorm3d(ftr1),
             nn.ReLU(inplace=True),
-            nn.Conv3d(32, 32, kernel_size=3, padding=1, bias=False)
+            nn.Conv3d(ftr1, ftr1, kernel_size=3, padding=1, bias=False)
             )
+        # stage 2
         self.conv1_2 = nn.Sequential(
-            nn.BatchNorm3d(32),
+            nn.BatchNorm3d(ftr1),
             nn.ReLU(inplace=True),
-            nn.Conv3d(32, 64, kernel_size=3, stride=(1,2,2), padding=1, bias=True)
+            nn.Conv3d(ftr1, ftr2, kernel_size=3, stride=(1,2,2), padding=1, bias=True)
             )
-        self.voxres2 = VoxRex(64)
-        self.voxres3 = VoxRex(64)
+        self.voxres2 = VoxRex(ftr2)
+        self.voxres3 = VoxRex(ftr2)
+        # stage 3
         self.conv4 = nn.Sequential(
-            nn.BatchNorm3d(64),
+            nn.BatchNorm3d(ftr2),
             nn.ReLU(inplace=True),
-            nn.Conv3d(64, 64, kernel_size=3, stride=(1,2,2), padding=1, bias=True)
+            nn.Conv3d(ftr2, ftr3, kernel_size=3, stride=(1,2,2), padding=1, bias=True)
             )
-        self.voxres5 = VoxRex(64)
-        self.voxres6 = VoxRex(64)
+        self.voxres5 = VoxRex(ftr3)
+        self.voxres6 = VoxRex(ftr3)
+        # stage 4
         self.conv7 = nn.Sequential(
-            nn.BatchNorm3d(64),
+            nn.BatchNorm3d(ftr3),
             nn.ReLU(inplace=True),
-            nn.Conv3d(64, 64, kernel_size=3, stride=(1,2,2), padding=1, bias=True)
+            nn.Conv3d(ftr3, ftr4, kernel_size=3, stride=(1,2,2), padding=1, bias=True)
             )
-        self.voxres8 = VoxRex(64)
-        self.voxres9 = VoxRex(64)
+
+        self.voxres8 = VoxRex(ftr4)
+        self.voxres9 = VoxRex(ftr4)
 
 
     def forward(self, x):
@@ -124,20 +130,6 @@ class VoxResNet_V0(VoxResNet):
         c4 = self.head_c4(h4)
 
         return c1+c2+c3+c4
-
-class RCU(nn.Module):
-    def __init__(self, in_channels, out_channels):
-        super(RCU, self).__init__()
-        self.block = nn.Sequential(
-            nn.ReLU(inplace=True),
-            nn.Conv3d(in_channels, out_channels, kernel_size=3, padding=1, bias=False),
-            nn.ReLU(inplace=True),
-            nn.Conv3d(out_channels, out_channels, kernel_size=3, padding=1, bias=False)
-            )
-
-    def forward(self, x):
-        return self.block(x)+x
-
 
 class VoxResNet_V1(VoxResNet):
     def __init__(self, in_channels, num_classes):

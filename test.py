@@ -38,10 +38,12 @@ def Cvt2Nii(predict, folder):
     # refer to https://www.smir.ch/Content/scratch/isles/nibabel_copy_header.py
     predict = predict.astype(np.uint8)
     nii_data = LoadADC(folder)
-    print(nii_data.shape, predict.shape)
+    #print(nii_data.header)
+    #print(nii_data.shape, predict.shape)
     nii_data.set_data_dtype(np.dtype(np.uint8))
     nii_data.get_data()[...] = predict
     #nii_data.get_data()[:] = 1
+    #print(nii_data.header)
     return nii_data
 
 def Evaluate(net, dataset, use_cuda):
@@ -81,11 +83,14 @@ def GetTestData():
 
 def GetModel():
     net = VoxResNet_V1(7, 1)
-    net.load_state_dict(torch.load('./model/max_fscore.pt'))
+    net.load_state_dict(torch.load('./model/epoch_1600.pt'))
     return net
 
 if __name__ == '__main__':
-    test_dataset = GetTestData()
+    train_dataset, val_dataset = GetDataset()
+    #test_dataset = GetTestData()
+    #test_dataset.eval()
     net = GetModel()
-    Evaluate(net, test_dataset, True)
+    Evaluate(net, train_dataset, True)
+    Evaluate(net, val_dataset, True)
 

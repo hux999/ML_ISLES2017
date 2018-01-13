@@ -83,6 +83,6 @@ if __name__ == '__main__':
     #test_dataset = GetTestData()
 
     net = VoxResNet_V1(7, 1)
-    net.load_state_dict(torch.load('./model/max_fscore.pt'))
+    net.load_state_dict(torch.load('./model/epoch_1600.pt'))
 
     Demo(net, val_dataset, True)
