@@ -48,10 +48,10 @@ class NonLocalBlock(nn.Module):
 
     def forward(self, x):
         N, C, D, H, W = x.shape
-        x_pooled = F.max_pool3d(x, kernel_size=(1,2,2), stride=(1,2,2)) # max pooling in spatial domain
+        #x_pooled = F.max_pool3d(x, kernel_size=(1,2,2), stride=(1,2,2)) # max pooling in spatial domain
         x_theta = self.theta(x).view(N, C/2, D*H*W) 
-        x_phi = self.phi(x_pooled).view(N, C/2, D*H*W/4)
-        x_g = self.g(x_pooled).view(N, C/2, D*H*W/4)
+        x_phi = F.max_pool3d(self.phi(x), kernel_size=(1,2,2), stride=(1,2,2)).view(N, C/2, D*H*W/4)
+        x_g = F.max_pool3d(self.g(x), kernel_size=(1,2,2), stride=(1,2,2)).view(N, C/2, D*H*W/4)
         x_f = F.softmax(torch.matmul(x_phi.transpose(1,2), x_theta), dim=1) # [N, D*H*W/4, D*H*W]
         return self.h(torch.matmul(x_g, x_f).view(N, C/2, D, H, W))  +  x
 
@@ -59,7 +59,7 @@ class RefineNet(VoxResNet):
     def __init__(self, in_channels, num_classes):
         super(RefineNet, self).__init__(in_channels, num_classes, [32,64,128,256])
 
-        ftr_size = 256
+        ftr_size = 128
 
         # adaptive 
         self.adaptive1 = nn.Conv3d(32, ftr_size, kernel_size=1)
@@ -90,13 +90,13 @@ class RefineNet(VoxResNet):
         h2 = self.foward_stage2(h1)
         h3 = self.foward_stage3(h2)
         h4 = self.foward_stage4(h3)
-        h4 = self.non_local(h4)
+        #h4 = self.non_local(h4)
 
         h1 = self.adaptive1(F.relu(h1, inplace=False))
         h2 = self.adaptive2(F.relu(h2, inplace=False))
         h3 = self.adaptive3(F.relu(h3, inplace=False))
         h4 = self.adaptive4(F.relu(h4, inplace=False))
-        
+
         p4 = h4
         p3 = self.upsample_3d(p4, 2) + h3
         p3 = self.smooth3(p3)
@@ -104,6 +104,12 @@ class RefineNet(VoxResNet):
         p2 = self.smooth2(p2)
         p1 = self.upsample_3d(p2, 2) + h1
         p1 = self.smooth1(p1)
+        '''
+        p4 = self.upsample_3d(h4, 8)
+        p3 = self.upsample_3d(h3, 4)
+        p2 = self.upsample_3d(h2, 2)
+        p1 = torch.cat([h1,p2,p3,p4], dim=1)
+        '''
 
         c = self.predict(p1)
         return c

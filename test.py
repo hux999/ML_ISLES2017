@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 
 import nibabel as nib 
 import cv2
@@ -54,14 +55,18 @@ def Evaluate(net, dataset, use_cuda):
     for i, (volume, _) in enumerate(dataset):
         folder = dataset.folders[i]
         print('processing %s' % folder)
+        start = time.time()
         volume = Variable(volume)
         if use_cuda:
             volume = volume.cuda()
         predict = net(volume.unsqueeze(0))
+        predict = F.softmax(predict, dim=1)[:,1, :, :, :]
         #predict = predict.data.squeeze().permute(2,1,0) # D,H,W -> W,H,D 
         predict = predict.data.squeeze().permute(1,2,0) # D,H,W -> H,W,D 
-        predict = predict>0 # 0 for background, 1 for foreground
+        predict = predict>0.5 # 0 for background, 1 for foreground
         predict = predict.cpu().numpy()
+        end = time.time()
+        print('time', end-start)
         nii_data = Cvt2Nii(predict, folder)
         nib.save(nii_data, './result/SMIR.3DCNN.%s.nii' % GetSMIR_ID(folder))
         predict = nii_data.get_data()
@@ -82,7 +87,7 @@ def GetTestData():
     return test_dataset
 
 def GetModel():
-    net = VoxResNet_V1(7, 1)
+    net = VoxResNet_V1(7, 2)
     net.load_state_dict(torch.load('./model/epoch_1600.pt'))
     return net
 

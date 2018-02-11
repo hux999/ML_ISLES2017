@@ -104,12 +104,13 @@ def Visualize(person_data):
             if len(img_data.shape) == 3:
                 imgs[img_type] = img_data[:, :, i]
             else:
+                continue
                 for j in range(img_data.shape[3]):
                     imgs[img_type+('_%d'%j)] = img_data[:, :, i, j]
         for img_type, img_data in imgs.items():
             img_data = cv2.merge([img_data, img_data, img_data])
             if groundtruth and len(contours)>0:
-                img_data = cv2.drawContours(img_data, contours, -1, (255,0,0), 1)
+                cv2.drawContours(img_data, contours, -1, (255,0,0), 1)
             cv2.putText(img_data, img_type, (20, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,255))
             imgs[img_type] = img_data
         print(len(imgs))

@@ -63,15 +63,15 @@ def Evaluate(net, dataset, use_cuda):
 def Train(train_data, val_data, net, num_epoch=2000, lr=0.01, use_cuda=True):
     if use_cuda is not None:
         net.cuda()
-    #net_ = torch.nn.DataParallel(net, device_ids=use_cuda)
-    net_ = net
+    net_ = torch.nn.DataParallel(net, device_ids=[0, 1, 2])
+    #net_ = net
     optimizer = torch.optim.Adam(net.parameters(), lr=lr)
     max_fscore = 0
     for i_epoch in range(num_epoch):
         # train
         net_.train()
         train_data.train()
-        batch_data = DataLoader(train_data, batch_size=8, shuffle=True, num_workers=4,
+        batch_data = DataLoader(train_data, batch_size=24, shuffle=True, num_workers=12,
                 collate_fn=CollateFn())
         for i_batch, (volume, target) in enumerate(batch_data):
             volume = Variable(volume)
@@ -115,8 +115,9 @@ def GetDataset():
 
 if __name__ == '__main__':
     train_dataset, val_dataset = GetDataset()
-    #net = VoxResNet_V1(7, 1)
-    net = RefineNet(7,2)
+    #net = VoxResNet_V0(7, 2)
+    #net = RefineNet(7,2)
+    net = VoxResNet_V1(7, 2)
 
     Train(train_dataset, val_dataset, net,
         num_epoch=3000, lr=0.0001, use_cuda=True)

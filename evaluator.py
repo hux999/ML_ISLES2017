@@ -32,5 +32,15 @@ class EvalRecall(object):
             recall = -1.0
         return recall
 
+class EvalFscore(object):
+    def __init__(self):
+        pass
+
+    def AddResult(self, predict, target):
+        pass
+
+    def Eval(self):
+        pass
+
 if __name__ == '__main__':
     pass
