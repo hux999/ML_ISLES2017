@@ -10,6 +10,8 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset 
 
+from preprocess import ReColor,RandomRotate,SampleVolume,CurriculumWrapper
+
 def LoadOnePersonNii(data_root):
     folders = os.listdir(data_root)
     data = {}
@@ -78,19 +80,6 @@ def Normalize(data_list, means, norm):
         for data in ndata_list:
             data /= norm
     return ndata_list, means, norm 
-
-def SampleVolume(data, label, dst_shape=[96, 96, 5]):
-    src_h,src_w,src_d,_ = data.shape
-    dst_h,dst_w,dst_d = dst_shape
-    h = random.randint(0, src_h-dst_h)
-    w = random.randint(0, src_w-dst_w)
-    d = random.randint(0, src_d-dst_d)
-    sub_volume = data[h:h+dst_h,w:w+dst_w,d:d+dst_d,:]
-    sub_label = label[h:h+dst_h,w:w+dst_w,d:d+dst_d]
-    if random.random() > 0.5:
-        sub_volume = sub_volume[:, ::-1, :, :]
-        sub_label = sub_label[:, ::-1, :]
-    return sub_volume,sub_label
 
 def MakeGrid(imgs, width=8):
     h, w, c = imgs[0].shape
@@ -176,6 +165,7 @@ class ScanDataset(Dataset):
         self.means = means
         self.norm = norm
         self.is_train = is_train
+        self.set_trans_prob(1.0)
 
     def __len__(self):
         return len(self.data_list)
@@ -185,11 +175,20 @@ class ScanDataset(Dataset):
         label = self.label_list[index]
         if self.is_train:
             assert(label is not None)
-            volume,label = SampleVolume(volume, label, self.sample_shape)
+            for trans in self.trans_all:
+                volume, label = trans(volume, label)
+            for trans in self.trans_data:
+                volume = trans(volume)
         volume = torch.Tensor(volume.copy()).permute(3,2,0,1) # H,W,D,C -> C,D,H,W
         if label is not None:
             label = torch.Tensor(label.copy()).permute(2,0,1) # H,W,D -> D,H,W
         return volume, label
+
+    def set_trans_prob(self, prob):
+        self.trans_prob = prob
+        self.trans_data = [ CurriculumWrapper(ReColor(alpha=0.05), prob) ]
+        self.trans_all = [ SampleVolume(dst_shape=(96, 96, [5])),
+                CurriculumWrapper(RandomRotate(random_flip=True), prob)]
 
     def train(self):
         self.is_train = True

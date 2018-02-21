@@ -73,6 +73,7 @@ def Train(train_data, val_data, net, num_epoch=2000, lr=0.01, use_cuda=True):
         train_data.train()
         batch_data = DataLoader(train_data, batch_size=24, shuffle=True, num_workers=12,
                 collate_fn=CollateFn())
+        train_data.set_trans_prob(i_epoch/1000.0+0.1)
         for i_batch, (volume, target) in enumerate(batch_data):
             volume = Variable(volume)
             target = Variable(target)
@@ -106,7 +107,7 @@ def Train(train_data, val_data, net, num_epoch=2000, lr=0.01, use_cuda=True):
                 torch.save(net.state_dict(), 'model/max_fscore.pt')
 
 def GetDataset():
-    data_root = './data/train'
+    data_root = './data/ISLES/train'
     folders = [ os.path.join(data_root, folder) for folder in sorted(os.listdir(data_root)) ] 
     train_dataset = ISLESDataset(folders[:40], is_train=True, sample_shape=(96,96,7))
     val_dataset = ISLESDataset(folders[40:], means=train_dataset.means, 
@@ -116,8 +117,8 @@ def GetDataset():
 if __name__ == '__main__':
     train_dataset, val_dataset = GetDataset()
     #net = VoxResNet_V0(7, 2)
-    #net = RefineNet(7,2)
-    net = VoxResNet_V1(7, 2)
+    net = RefineNet(9,2)
+    #net = VoxResNet_V1(9, 2)
 
     Train(train_dataset, val_dataset, net,
         num_epoch=3000, lr=0.0001, use_cuda=True)
