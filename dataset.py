@@ -212,6 +212,8 @@ class ISLESDataset(ScanDataset):
 class BRATSDataset(ScanDataset):
     def __init__(self, folders, sample_shape=(96,96,5), means=None, norm=None, is_train=False):
         self.name = 'BRATS'
+        means = np.array([[[[ 51.95236969,  74.40973663,  81.23361206,  95.90114594]]]], dtype=np.float32)
+        norm = np.array([[[[ 89.12859344,  124.9729538 ,  137.86834717,  154.61538696]]]], dtype=np.float32)
         super(BRATSDataset, self).__init__(folders, sample_shape, means, norm, is_train)
 
     def load_data(self, folders):
