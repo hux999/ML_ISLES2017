@@ -79,6 +79,7 @@ def Normalize(data_list, means, norm):
         norm /= count
         for data in ndata_list:
             data /= norm
+        print(means, norm)
     return ndata_list, means, norm 
 
 def MakeGrid(imgs, width=8):
@@ -187,7 +188,7 @@ class ScanDataset(Dataset):
     def set_trans_prob(self, prob):
         self.trans_prob = prob
         self.trans_data = [ CurriculumWrapper(ReColor(alpha=0.05), prob) ]
-        self.trans_all = [ SampleVolume(dst_shape=(96, 96, [5])),
+        self.trans_all = [ SampleVolume(dst_shape=self.sample_shape),
                 CurriculumWrapper(RandomRotate(random_flip=True), prob)]
 
     def train(self):
@@ -198,6 +199,7 @@ class ScanDataset(Dataset):
 
 class ISLESDataset(ScanDataset):
     def __init__(self, folders, sample_shape=(96,96,5), means=None, norm=None, is_train=False):
+        self.name = 'ISLES'
         super(ISLESDataset, self).__init__(folders, sample_shape, means, norm, is_train)
 
     def load_data(self, folders):
@@ -209,13 +211,26 @@ class ISLESDataset(ScanDataset):
 
 class BRATSDataset(ScanDataset):
     def __init__(self, folders, sample_shape=(96,96,5), means=None, norm=None, is_train=False):
-        super(BRASTDataset, self).__init__(folders, sample_shape, means, norm, is_train)
+        self.name = 'BRATS'
+        super(BRATSDataset, self).__init__(folders, sample_shape, means, norm, is_train)
 
     def load_data(self, folders):
-        data_list = [LoadOnePersonMha(folder) for folder in folders]
-        data_list = [StackData(data) for data in data_list]
-        label_list = [data[1] for data in data_list]
-        data_list = [data[0] for data in data_list]
+        data_list = []
+        label_list = []
+        for folder in folders:
+            print('loading %s' % folder)
+            cache_file = os.path.join('./cache', '_'.join(folder.split('/')[-2:]))
+            if os.path.exists(cache_file+'.npz'):
+                print('load from cache %s' % cache_file)
+                npzfile = np.load(cache_file+'.npz')
+                data = npzfile['data']
+                label = npzfile['label']
+            else:
+                data = LoadOnePersonMha(folder)
+                data, label = StackData(data)
+                np.savez(cache_file, data=data, label=label)
+            data_list.append(data)
+            label_list.append(label)
         return data_list, label_list
 
 def test_visulize():
