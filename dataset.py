@@ -226,11 +226,14 @@ class BRATSDataset(ScanDataset):
                 print('load from cache %s' % cache_file)
                 npzfile = np.load(cache_file+'.npz')
                 data = npzfile['data']
-                label = npzfile['label']
+                label = npzfile['label'] if 'label' in npzfile else None
             else:
                 data = LoadOnePersonMha(folder)
                 data, label = StackData(data)
-                np.savez(cache_file, data=data, label=label)
+                if label is None:
+                    np.savez(cache_file, data=data)
+                else:
+                    np.savez(cache_file, data=data, label=label)
             data_list.append(data)
             label_list.append(label)
         return data_list, label_list
