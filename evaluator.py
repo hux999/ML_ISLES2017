@@ -21,16 +21,18 @@ def get_fn(gt_data, pred_data, tp=None):
 
 class EvalPrecision(object):
     def __init__(self):
-        self.tp = 0
-        self.tn = 0
+        self.sum_score = 0
+        self.count = 0
 
     def AddResult(self, predict, target):
-        self.tp += get_tp(target, predict)
-        self.tn += get_tn(target, predict)
+        tp = get_tp(target, predict)
+        fp = get_fp(target, predict, tp)
+        precision = 1.0*tp/(tp+fp+1.0)
+        self.sum_score += precision
+        self.count += 1
 
     def Eval(self):
-        precision = 1.0 * self.tp / (self.tp+self.tn+1)
-        return precision
+        return self.sum_score/self.count
 
 class EvalRecall(object):
     def __init__(self):
@@ -61,36 +63,34 @@ class EvalFscore(object):
 
 class EvalDiceScore(object):
     def __init__(self):
-        self.tp = 0
-        self.fp = 0
-        self.fn = 0
+        self.sum_score = 0
+        self.count = 0
 
     def AddResult(self, predict, target):
         tp = get_tp(target, predict)
-        self.tp += tp
-        self.fp += get_fp(target, predict, tp)
-        self.fn += get_fn(target, predict, tp)
+        fp = get_fp(target, predict, tp)
+        fn = get_fn(target, predict, tp)
+        dice_score = tp * 2.0 / (tp * 2.0 + fn + fp + 1.0)
+        self.sum_score += dice_score
+        self.count += 1
 
     def Eval(self):
-        return self.tp * 2.0 / (self.tp * 2.0 + self.fn + self.fp + 1.0)
-
+        return self.sum_score/self.count
 
 class EvalSensitivity(object):
     def __init__(self):
-        self.num_hit = 0
-        self.num_target = 0
-        self.tp = 0
-        self.fn = 0
+        self.sum_score = 0
+        self.count = 0
 
     def AddResult(self, predict, target):
         tp = get_tp(target, predict)
         fn = get_fn(target, predict, tp)
-        self.tp += tp
-        self.fn += fn
+        recall = 1.0*tp/(tp+fn+1)
+        self.sum_score += recall
+        self.count += 1
 
     def Eval(self):
-        recall = 1.0*self.tp/(self.tp+self.fn+1)
-        return recall
+        return self.sum_score/self.count
 
 class EvalHD(object):
     def __init__(self):
