@@ -83,7 +83,7 @@ def Normalize(data_list, means, norm):
         print(means, norm)
     return ndata_list, means, norm
 
-def Mode(data, factor=8):
+def Mode(data, factor=16):
     data = (data/factor).astype(np.int32)
     num_chns = data.shape[3]
     modes = []
@@ -98,6 +98,7 @@ def Mode(data, factor=8):
 def MakeGrid(imgs, width=8):
     h, w, c = imgs[0].shape
     height = int(len(imgs)/width) + (1 if len(imgs)%width > 0 else 0)
+    width = len(imgs) if height == 1 else width
     ind = 0
     concat_img = np.zeros((h*height, w*width, c), np.uint8)
     for h_idx in range(height):
@@ -201,7 +202,7 @@ class ScanDataset(Dataset):
     def set_trans_prob(self, prob):
         self.trans_prob = prob
         self.trans_data = [ CurriculumWrapper(ReColor(alpha=0.05), prob) ]
-        self.trans_all = [ SampleVolume(dst_shape=self.sample_shape),
+        self.trans_all = [ SampleVolume(dst_shape=self.sample_shape, pos_ratio=0.5),
                 CurriculumWrapper(RandomRotate(random_flip=True), prob)]
 
     def train(self):
@@ -225,8 +226,10 @@ class ISLESDataset(ScanDataset):
 class BRATSDataset(ScanDataset):
     def __init__(self, folders, sample_shape=(96,96,5), means=None, norm=None, is_train=False):
         self.name = 'BRATS'
-        means = np.array([[[[ 51.95236969,  74.40973663,  81.23361206,  95.90114594]]]], dtype=np.float32)
-        norm = np.array([[[[ 89.12859344,  124.9729538 ,  137.86834717,  154.61538696]]]], dtype=np.float32)
+        #means = np.array([[[[ 51.95236969,  74.40973663,  81.23361206,  95.90114594]]]], dtype=np.float32)
+        #norm = np.array([[[[ 89.12859344,  124.9729538 ,  137.86834717,  154.61538696]]]], dtype=np.float32)
+        means = np.array([[[[ 0.16181767,  0.15569262,  0.15443861,  0.20622088 ]]]], dtype=np.float32)
+        norm = np.array([[[[ 0.27216652,  0.26292121,  0.25937194,  0.34633893 ]]]], dtype=np.float32)
         super(BRATSDataset, self).__init__(folders, sample_shape, means, norm, is_train)
 
     def load_data(self, folders):
@@ -240,9 +243,9 @@ class BRATSDataset(ScanDataset):
                 npzfile = np.load(cache_file+'.npz')
                 data = npzfile['data']
                 label = npzfile['label'] if 'label' in npzfile else None
-                #print(Mode(data), np.max(data, axis=(0,1,2)), np.min(data, axis=(0,1,2)))
-                #mode = Mode(data).reshape(1,1,1,4)
-                #data = data/mode
+                mode = Mode(data)
+                #print(mode, np.max(data, axis=(0,1,2)))
+                data = data/mode.reshape(1,1,1,4)
             else:
                 data = LoadOnePersonMha(folder)
                 data, label = StackData(data)
@@ -250,6 +253,9 @@ class BRATSDataset(ScanDataset):
                     np.savez(cache_file, data=data)
                 else:
                     np.savez(cache_file, data=data, label=label)
+                mode = Mode(data)
+                #print(mode, np.max(data, axis=(0,1,2)))
+                data = data/mode.reshape(1,1,1,4)
             data_list.append(data)
             label_list.append(label)
         return data_list, label_list

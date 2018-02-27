@@ -44,15 +44,15 @@ class SampleVolume:
             w = random.randint(0, src_w-dst_w)
             d = random.randint(0, src_d-dst_d)
         else:
-            select = label>0 if random.random() < pos else label==0
+            select = label>0 if random.random() < self.pos_ratio else label==0
             h, w, d = np.where(select)
             select_idx = random.randint(0, len(h)-1)
-            h = h[select_idx] + int(dst_h/2)
-            w = w[select_idx] + int(dst_w/2)
-            d = d[select_idx] + int(dst_d/2)
-            h = min(max(h,0), h-dst_h+1)
-            w = min(max(w,0), w-dst_w+1)
-            d = min(max(d,0), w-dst_d+1)
+            h = h[select_idx] - int(dst_h/2)
+            w = w[select_idx] - int(dst_w/2)
+            d = d[select_idx] - int(dst_d/2)
+            h = min(max(h,0), src_h-dst_h)
+            w = min(max(w,0), src_w-dst_w)
+            d = min(max(d,0), src_d-dst_d)
         sub_volume = data[h:h+dst_h,w:w+dst_w,d:d+dst_d,:]
         sub_label = label[h:h+dst_h,w:w+dst_w,d:d+dst_d]
         return sub_volume,sub_label

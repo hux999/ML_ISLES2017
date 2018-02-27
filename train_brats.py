@@ -73,7 +73,7 @@ def Train(train_data, val_data, net, num_epoch, lr, output_dir):
 
     for i_epoch in range(num_epoch):
         # train
-        solver.dataset.set_trans_prob(i_epoch/2000.0+0.1)
+        solver.dataset.set_trans_prob(i_epoch/1000.0+0.1)
         loss = solver.step_one_epoch(batch_size=40, iter_size=1)
         print(('epoch:%d, loss:%f')  % (i_epoch, loss))
 
@@ -136,5 +136,5 @@ if __name__ == '__main__':
     except:
         pass
     Train(train_dataset, val_dataset, net,
-        num_epoch=4000, lr=0.0001, output_dir=output_dir)
+        num_epoch=3000, lr=0.0001, output_dir=output_dir)
 
