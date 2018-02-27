@@ -79,8 +79,11 @@ def GetTestData(test_set):
 
 def GetModel(model_file):
     net = RefineNet(4,5)
-    print(net.state_dict().keys())
-    net.load_state_dict(torch.load(model_file))
+    state_dict = torch.load(model_file)
+    rename_state_dict = {}
+    for key, value in state_dict.items():
+        rename_state_dict['.'.join(key.split('.')[1:])] = value
+    net.load_state_dict(rename_state_dict)
     return net
 
 if __name__ == '__main__':
