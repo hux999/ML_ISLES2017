@@ -54,8 +54,9 @@ def Evaluate(net, dataset, output_dir, vis=False):
         print('processing %s' % folder)
         volume = Variable(volume, volatile=True).cuda()
         predict = SplitAndForward(net, volume, 31)
-        predict = torch.max(predict.squeeze(), dim=1)[1] 
+        predict = torch.max(predict.squeeze(), dim=0)[1] 
         predict = predict.cpu().numpy()
+        print(predict.shape)
         # save result
         mha_data = Cvt2Mha(predict, folder)
         mha_file = 'VSD.%s.%s.mha' % (folder.split('/')[-1], GetSMIR_ID(folder))
