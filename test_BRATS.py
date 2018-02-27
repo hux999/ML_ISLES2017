@@ -16,7 +16,7 @@ import math
 from vox_resnet import VoxResNet_V1
 from refine_net import RefineNet
 from dataset import BRATSDataset
-from train import GetDataset
+from train_brats import SplitAndForward, GetDataset
 import pdb
 
 def LoadFlair(data_root):
@@ -45,66 +45,60 @@ def Cvt2Mha(predict, folder):
     mha_data = sitk.GetImageFromArray(predict)
     return mha_data
 
-def SplitAndForward(net, x, split_size=5):
-    predict = []
-    for i, sub_x in enumerate(torch.split(x, split_size, dim=1)):
-        result = net(sub_x.unsqueeze(0))
-        predict.append(result.data)
-    predict = torch.cat(predict, dim=2)
-    return predict
-
-
-def Evaluate(net, dataset, use_cuda):
+def Evaluate(net, dataset, output_dir, vis=False):
     net.eval()
-    dataset.eval()
-    if use_cuda:
-        net.cuda()
+    net.cuda()
     dataset.eval()
     for i, (volume, _) in enumerate(dataset):
         folder = dataset.folders[i]
         print('processing %s' % folder)
-        volume = Variable(volume, volatile=True)
-        if use_cuda:
-            volume = volume.cuda()
-            net = net.cuda()
-        predict = SplitAndForward(net, volume, 20)
-        predict = torch.max(predict, dim=1)[1] 
-        predict = predict.cpu().numpy()[0]      
-
+        volume = Variable(volume, volatile=True).cuda()
+        predict = SplitAndForward(net, volume, 31)
+        predict = torch.max(predict.squeeze(), dim=1)[1] 
+        predict = predict.cpu().numpy()
+        # save result
         mha_data = Cvt2Mha(predict, folder)
-        print folder[-6:]
-        sitk.WriteImage(mha_data, './result_BRATSD/Testing/VSD.%s.%s.mha' % (folder[-6:],GetSMIR_ID(folder)))
-        # predict = mha_data.get_data()
-        '''
-        for i in range(predict.shape[2]):
-        	pred = predict[:, :, i].astype(np.uint8)
-        	cv2.imshow('pred', pred*255)
-        	cv2.waitKey()
-        '''
-        
+        mha_file = 'VSD.%s.%s.mha' % (folder.split('/')[-1], GetSMIR_ID(folder))
+        sitk.WriteImage(mha_data, os.path.join(output_dir, mha_file))
+        if vis:
+            predict = mha_data.get_data()
+            for i in range(predict.shape[2]):
+                pred = predict[:, :, i].astype(np.uint8)
+                cv2.imshow('pred', pred*255)
+                cv2.waitKey()
 
-def GetTestData():
-    #for train_dataset
-    # data_root = '/home/tinzhuo/ML_ISLES2017/data_BRATS/BRATS2015_Training/HGG'
-    #for test_dataset
-    data_root = '/home/tinzhuo/ML_ISLES2017/data_BRATS/Testing/HGG_LGG'
-    folders = [ os.path.join(data_root, folder) for folder in sorted(os.listdir(data_root)) ] 
-    test_dataset = BRATSDataset(folders[:1],  is_train=True, sample_shape=(96,96,5))
+def GetTestData(test_set):
+    if test_set == 'test':
+        data_root = './data/BRATS/test/HGG_LGG/'
+        folders = [ os.path.join(data_root, folder) for folder in sorted(os.listdir(data_root)) ]
+        test_dataset = BRATSDataset(folders,  is_train=False)
+    else:
+        test_set = int(test_set)
+        _, test_dataset = GetDataset(test_set, num_fold=5, need_train=False, need_val=True)
     return test_dataset
 
-def GetModel():
+def GetModel(model_file):
     net = RefineNet(4,5)
-    net.load_state_dict(torch.load('./model_BRATSD/epoch_2400.pt'))
+    print(net.state_dict().keys())
+    net.load_state_dict(torch.load(model_file))
     return net
 
 if __name__ == '__main__':
-    # train_dataset, val_dataset = GetDataset()
-    test_dataset = GetTestData()
-    print "get data done."
-    #test_dataset.eval()
-    net = GetModel()
-    print "load net done."
+    model_file = sys.argv[1]
+    test_set = sys.argv[2]
 
-    Evaluate(net, test_dataset, True)
-    # Evaluate(net, val_dataset, True)
+    net = GetModel(model_file)
+    print("load net done.")
+
+    # train_dataset, val_dataset = GetDataset()
+    test_dataset = GetTestData(test_set)
+    print("get data done.")
+    #test_dataset.eval()
+
+    output_dir = os.path.join('./result_BRATS', test_set)
+    try:
+        os.makedirs(output_dir)
+    except:
+        pass
+    Evaluate(net, test_dataset, output_dir)
 

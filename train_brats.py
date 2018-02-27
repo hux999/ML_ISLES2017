@@ -90,7 +90,7 @@ def Train(train_data, val_data, net, num_epoch, lr, output_dir):
             #print('train')
             #eval_dict_train = Evaluate(net, train_data, 'val')
 
-def GetDataset(fold, num_fold):
+def GetDataset(fold, num_fold, need_train=True, need_val=True):
     data_root = './data/BRATS/train/HGG/'
     folders_HGG = [ os.path.join(data_root, folder) for folder in 
             sorted(os.listdir(data_root)) ] 
@@ -106,9 +106,15 @@ def GetDataset(fold, num_fold):
             train_folders.append(folder)
     #train_folders = folders_HGG[:20] + folders_LGG[:20]
     #val_folders = folders_HGG[-2:] + folders_LGG[-2:]
-    train_dataset = BRATSDataset(train_folders, is_train=True, sample_shape=(128,128,12))
-    val_dataset = BRATSDataset(val_folders, means=train_dataset.means, 
-        norm=train_dataset.norm, is_train=False)
+    if need_train:
+        train_dataset = BRATSDataset(train_folders, is_train=True,
+                sample_shape=(128,128,12))
+    else:
+        train_dataset = None
+    if need_val:
+        val_dataset = BRATSDataset(val_folders, is_train=False)
+    else:
+        val_dataset = None
     return train_dataset, val_dataset
 
 if __name__ == '__main__':
