@@ -6,6 +6,7 @@ import nibabel as nib
 import SimpleITK as sitk
 import cv2
 import numpy as np
+from scipy import stats
 
 import torch
 from torch.utils.data import Dataset 
@@ -80,7 +81,19 @@ def Normalize(data_list, means, norm):
         for data in ndata_list:
             data /= norm
         print(means, norm)
-    return ndata_list, means, norm 
+    return ndata_list, means, norm
+
+def Mode(data, factor=8):
+    data = (data/factor).astype(np.int32)
+    num_chns = data.shape[3]
+    modes = []
+    for i in range(num_chns):
+        vals, counts = np.unique(data[:,:,:,i], return_counts=True)
+        for val in vals[counts.argsort()][::-1]:
+            if val != 0:
+                modes.append(val*factor)
+                break
+    return np.array(modes)
 
 def MakeGrid(imgs, width=8):
     h, w, c = imgs[0].shape
@@ -227,6 +240,9 @@ class BRATSDataset(ScanDataset):
                 npzfile = np.load(cache_file+'.npz')
                 data = npzfile['data']
                 label = npzfile['label'] if 'label' in npzfile else None
+                #print(Mode(data), np.max(data, axis=(0,1,2)), np.min(data, axis=(0,1,2)))
+                #mode = Mode(data).reshape(1,1,1,4)
+                #data = data/mode
             else:
                 data = LoadOnePersonMha(folder)
                 data, label = StackData(data)
