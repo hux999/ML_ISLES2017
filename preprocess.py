@@ -30,17 +30,29 @@ class ReColor:
         return im
 
 class SampleVolume:
-    def __init__(self, dst_shape=[96, 96, 5]):
+    def __init__(self, dst_shape=[96, 96, 5], pos_ratio=-1):
         self.dst_shape = dst_shape
+        self.pos_ratio = pos_ratio
 
     def __call__(self, data, label):
         src_h,src_w,src_d,_ = data.shape
         dst_h,dst_w,dst_d = self.dst_shape
         if type(dst_d) is list:
             dst_d = random.choice(dst_d)
-        h = random.randint(0, src_h-dst_h)
-        w = random.randint(0, src_w-dst_w)
-        d = random.randint(0, src_d-dst_d)
+        if self.pos_ratio<0:
+            h = random.randint(0, src_h-dst_h)
+            w = random.randint(0, src_w-dst_w)
+            d = random.randint(0, src_d-dst_d)
+        else:
+            select = label>0 if random.random() < pos else label==0
+            h, w, d = np.where(select)
+            select_idx = random.randint(0, len(h)-1)
+            h = h[select_idx] + int(dst_h/2)
+            w = w[select_idx] + int(dst_w/2)
+            d = d[select_idx] + int(dst_d/2)
+            h = min(max(h,0), h-dst_h+1)
+            w = min(max(w,0), w-dst_w+1)
+            d = min(max(d,0), w-dst_d+1)
         sub_volume = data[h:h+dst_h,w:w+dst_w,d:d+dst_d,:]
         sub_label = label[h:h+dst_h,w:w+dst_w,d:d+dst_d]
         return sub_volume,sub_label
