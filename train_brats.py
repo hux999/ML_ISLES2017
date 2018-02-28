@@ -70,11 +70,12 @@ def Train(train_data, val_data, net, num_epoch, lr, output_dir):
     net = torch.nn.DataParallel(net, device_ids=[0, 1, 2, 3])
     solver = Solver(net, train_data, 0.0001, output_dir)
     solver.criterion = lambda p,t: SegLoss(p, t, num_classes=5)
-
-    for i_epoch in range(num_epoch):
+    solver.iter_per_sample = 100
+    for i_epoch in range(0, num_epoch, solver.iter_per_sample):
         # train
         solver.dataset.set_trans_prob(i_epoch/1000.0+0.1)
         loss = solver.step_one_epoch(batch_size=40, iter_size=1)
+        i_epoch += solver.num_epoch
         print(('epoch:%d, loss:%f')  % (i_epoch, loss))
 
         if i_epoch % 100 == 0:
@@ -104,7 +105,7 @@ def GetDataset(fold, num_fold, need_train=True, need_val=True):
             val_folders.append(folder)
         else:
             train_folders.append(folder)
-    #train_folders = folders_HGG[:20] + folders_LGG[:20]
+    #train_folders = folders_HGG[:2] + folders_LGG[:2]
     #val_folders = folders_HGG[-2:] + folders_LGG[-2:]
     if need_train:
         train_dataset = BRATSDataset(train_folders, is_train=True,

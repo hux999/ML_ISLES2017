@@ -62,8 +62,9 @@ def StackData(person_data):
 def Normalize(data_list, means, norm):
     ndata_list = []
     if means is not None and norm is not None:
-        for data in data_list:
-            ndata_list.append((data-means)/norm)
+        for i, data in enumerate(data_list):
+            data_list[i] = (data-means)/norm
+        ndata_list = data_list
     else:
         h,w,d,c = data_list[0].shape
         means = np.zeros((1,1,1,c), np.float32)
@@ -181,11 +182,13 @@ class ScanDataset(Dataset):
         self.norm = norm
         self.is_train = is_train
         self.set_trans_prob(1.0)
+        self.iter_per_sample = 1
 
     def __len__(self):
-        return len(self.data_list)
+        return len(self.data_list)*self.iter_per_sample
 
     def __getitem__(self, index):
+        index = int(index/self.iter_per_sample)
         volume = self.data_list[index]
         label = self.label_list[index]
         if self.is_train:
@@ -204,6 +207,9 @@ class ScanDataset(Dataset):
         self.trans_data = [ CurriculumWrapper(ReColor(alpha=0.05), prob) ]
         self.trans_all = [ SampleVolume(dst_shape=self.sample_shape, pos_ratio=0.5),
                 CurriculumWrapper(RandomRotate(random_flip=True), prob)]
+
+    def set_iter_per_sample(self, iter_per_sample):
+        self.iter_per_sample
 
     def train(self):
         self.is_train = True

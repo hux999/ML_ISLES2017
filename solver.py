@@ -41,11 +41,13 @@ class Solver(object):
         self.writer = SummaryWriter(os.path.join(output_dir, 'tensorboard'))
         self.num_iter = 0
         self.num_epoch = 0
+        self.iter_per_sample = 1
 
     def step_one_epoch(self, batch_size, iter_size=1):
         self.net.cuda()
         self.net.train()
         self.dataset.train()
+        self.dataset.set_iter_per_sample(self.iter_per_sample)
         batch_data = DataLoader(self.dataset, batch_size=batch_size, shuffle=True, 
                 num_workers=batch_size/2, collate_fn=CollateFn(), pin_memory=True)
         for i_batch, (volume, target) in enumerate(batch_data):
@@ -62,7 +64,7 @@ class Solver(object):
                 self.optimizer.step()
                 self.optimizer.zero_grad()
         self.writer.file_writer.flush()
-        self.num_epoch += 1
+        self.num_epoch += self.iter_per_sample
         return loss.data[0]
 
     def create_optimizer(self, lr):
@@ -70,7 +72,7 @@ class Solver(object):
         return optimizer
 
     def save_model(self):
-        model_name = 'epoch_%04d.pt' % (self.num_epoch-1)
+        model_name = 'epoch_%04d.pt' % (self.num_epoch)
         save_path = os.path.join(self.output_dir, 'model', model_name)
         torch.save(self.net.state_dict(), save_path)
         return save_path
