@@ -209,7 +209,7 @@ class ScanDataset(Dataset):
                 CurriculumWrapper(RandomRotate(random_flip=True), prob)]
 
     def set_iter_per_sample(self, iter_per_sample):
-        self.iter_per_sample
+        self.iter_per_sample = iter_per_sample
 
     def train(self):
         self.is_train = True
