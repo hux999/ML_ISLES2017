@@ -27,12 +27,17 @@ class EvalPrecision(object):
     def AddResult(self, predict, target):
         tp = get_tp(target, predict)
         fp = get_fp(target, predict, tp)
-        precision = 1.0*tp/(tp+fp+1.0)
+        if tp+tp == 0:
+            return
+        precision = 1.0*tp/(tp+fp)
         self.sum_score += precision
         self.count += 1
 
     def Eval(self):
-        return self.sum_score/self.count
+        if self.count > 0:
+            return self.sum_score/self.count
+        else:
+            return 0
 
 class EvalRecall(object):
     def __init__(self):
@@ -70,12 +75,17 @@ class EvalDiceScore(object):
         tp = get_tp(target, predict)
         fp = get_fp(target, predict, tp)
         fn = get_fn(target, predict, tp)
-        dice_score = tp * 2.0 / (tp * 2.0 + fn + fp + 1.0)
+        if tp*2.0+fn+fp == 0:
+            return
+        dice_score = tp * 2.0 / (tp * 2.0 + fn + fp)
         self.sum_score += dice_score
         self.count += 1
 
     def Eval(self):
-        return self.sum_score/self.count
+        if self.count > 0:
+            return self.sum_score/self.count
+        else:
+            return 0
 
 class EvalSensitivity(object):
     def __init__(self):
@@ -85,12 +95,17 @@ class EvalSensitivity(object):
     def AddResult(self, predict, target):
         tp = get_tp(target, predict)
         fn = get_fn(target, predict, tp)
-        recall = 1.0*tp/(tp+fn+1)
+        if tp+fn == 0:
+            return
+        recall = 1.0*tp/(tp+fn)
         self.sum_score += recall
         self.count += 1
 
     def Eval(self):
-        return self.sum_score/self.count
+        if self.count > 0:
+            return self.sum_score/self.count
+        else:
+            return 0
 
 class EvalHD(object):
     def __init__(self):

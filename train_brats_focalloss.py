@@ -13,6 +13,7 @@ from vox_resnet import VoxResNet_V0, VoxResNet_V1
 from refine_net import RefineNet
 from dataset import ISLESDataset, BRATSDataset
 from evaluator import EvalDiceScore, EvalSensitivity, EvalPrecision
+from FocalLoss import FocalLoss
 
 def SplitAndForward(net, x, split_size=31):
     predict = []
@@ -69,11 +70,11 @@ def Evaluate(net, dataset, data_name):
 def Train(train_data, val_data, net, num_epoch, lr, output_dir):
     net = torch.nn.DataParallel(net, device_ids=[0, 1, 2, 3])
     solver = Solver(net, train_data, 0.0001, output_dir)
-    solver.criterion = lambda p,t: SegLoss(p, t, num_classes=5)
+    solver.criterion = lambda p,t: SegLoss(p, t, num_classes=5, loss_fn=FocalLoss(5))
     solver.iter_per_sample = 100
     for i_epoch in range(0, num_epoch, solver.iter_per_sample):
         # train
-        solver.dataset.set_trans_prob(i_epoch/1000.0+0.15)
+        solver.dataset.set_trans_prob(i_epoch/1000.0+0.5)
         loss = solver.step_one_epoch(batch_size=40, iter_size=1)
         i_epoch = solver.num_epoch
         print(('epoch:%d, loss:%f')  % (i_epoch, loss))
@@ -118,16 +119,26 @@ def GetDataset(fold, num_fold, need_train=True, need_val=True):
         val_dataset = None
     return train_dataset, val_dataset
 
+def GetModel(model_file):
+    net = RefineNet(4,5)
+    state_dict = torch.load(model_file)
+    rename_state_dict = {}
+    for key, value in state_dict.items():
+        rename_state_dict['.'.join(key.split('.')[1:])] = value
+    net.load_state_dict(rename_state_dict)
+    return net
+
 if __name__ == '__main__':
     fold = int(sys.argv[1])
+    pretrain = sys.argv[2]
     train_dataset, val_dataset = GetDataset(fold, num_fold=5)
     print('number of training %d' % len(train_dataset))
     print('number of validation %d' % len(val_dataset))
     #net = VoxResNet_V0(4, 5)
-    net = RefineNet(4,5)
+    net = GetModel(pretrain)
     #net = VoxResNet_V1(4, 5)
 
-    output_dir = './output/brast_%d' % fold
+    output_dir = './output/brast_focalloss_%d' % fold
     try:
         os.makedirs(os.path.join(output_dir, 'model'))
     except:

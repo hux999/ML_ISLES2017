@@ -7,7 +7,6 @@ import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 from torch.autograd import Variable
 
-from FocalLoss import FocalLoss
 from tensorboardX import SummaryWriter
 
 class CollateFn:
@@ -22,12 +21,11 @@ class CollateFn:
             label_list.append(label)
         return torch.stack(volume_list), torch.stack(label_list)
 
-def SegLoss(predict, label, num_classes=2):
+def SegLoss(predict, label, num_classes=2, loss_fn=nn.CrossEntropyLoss()):
     predict = predict.permute(0, 2, 3, 4, 1).contiguous()
     predict = predict.view(-1, num_classes)
     label = label.view(-1)
-    #loss = FocalLoss(num_classes)(predict, label.long())
-    loss = F.cross_entropy(predict, label.long())
+    loss = loss_fn(predict, label.long())
     return loss
 
 class Solver(object):
