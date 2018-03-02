@@ -110,21 +110,31 @@ def MakeGrid(imgs, width=8):
             ind += 1
     return concat_img
 
-def Visualize(person_data):
+def DrawLabel(ot_data, max_label):
     color_bar = [
             (0, 0, 0),
             (0, 255, 0),
             (0, 0, 255),
             (255, 0, 0),
-            (255, 0, 255),
+            (255, 255, 255),
             (0, 255, 255),
             (255, 255, 0)
             ]
+    R = np.zeros(ot_data.shape, np.uint8)
+    G = np.zeros(ot_data.shape, np.uint8)
+    B = np.zeros(ot_data.shape, np.uint8)
+    for label in range(1, max_label+1):
+        R[ot_data==label] = color_bar[label][0]
+        G[ot_data==label] = color_bar[label][1]
+        B[ot_data==label] = color_bar[label][2]
+    return cv2.merge([B, G, R])
+
+
+def Visualize(person_data):
     # normalize each channel in range [0, 255]
     normalize_data = {}
     for img_type, img_data in person_data.items():
         if img_type == 'OT':
-            print(np.max(img_data), np.min(img_data))
             max_label = np.max(img_data)
             data = img_data
         else:
@@ -133,22 +143,15 @@ def Visualize(person_data):
         normalize_data[img_type] = data.astype(np.uint8)
     # for each time slice
     for i in range(normalize_data.values()[0].shape[2]):
+        print('frame %d' % i)
         groundtruth = 'OT' in normalize_data.keys()
         # parse groundtruth
         if groundtruth:
             ot_data = normalize_data['OT'][:,:, i] 
             gt = (ot_data>0).astype(np.uint8) # TODO assume 0 is background class
             contours,_ = cv2.findContours(gt.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-            R = np.zeros(ot_data.shape, np.uint8)
-            G = np.zeros(ot_data.shape, np.uint8)
-            B = np.zeros(ot_data.shape, np.uint8)
-            print(np.unique(ot_data))
-            for label in range(1, max_label+1):
-                R[ot_data==label] = color_bar[label][0]
-                G[ot_data==label] = color_bar[label][1]
-                B[ot_data==label] = color_bar[label][2]
-            ot_data = cv2.merge([B, G, R])
-            cv2.putText(ot_data, 'OT', (20, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,255))
+            ot_data = DrawLabel(ot_data, 4)
+        # split images
         imgs = {}
         for img_type, img_data in normalize_data.items():
             if len(img_data.shape) == 3:
@@ -157,16 +160,23 @@ def Visualize(person_data):
                 continue #TODO
                 for j in range(img_data.shape[3]):
                     imgs[img_type+('_%d'%j)] = img_data[:, :, i, j]
+        # to 3 channels
         for img_type, img_data in imgs.items():
             img_data = cv2.merge([img_data, img_data, img_data])
-            if groundtruth and len(contours)>0:
-                cv2.drawContours(img_data, contours, -1, (255,0,0), 1)
-            cv2.putText(img_data, img_type, (20, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,255))
+            cv2.imwrite('./image/dataset/%03d_%s.jpg' % (i, img_type), img_data)
             imgs[img_type] = img_data
+        # draw contours
         if groundtruth and len(contours)>0:
+            for img_type, img_data in imgs.items():
+                    cv2.drawContours(img_data, contours, -1, (255,0,0), 1)
+        # grounth truth
+        if groundtruth and len(contours)>0:
+            cv2.imwrite('./image/dataset/%03d_OT.jpg' % i, ot_data)
             imgs['OT'] = ot_data
-        print(len(imgs))
-        concat_img = MakeGrid(imgs.values(), 8)
+        # draw test
+        for img_type, img_data in imgs.items():
+            cv2.putText(img_data, img_type, (20, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,255))
+        concat_img = MakeGrid(imgs.values(), 6)
         cv2.imshow('img', concat_img)
         cv2.waitKey()
 
