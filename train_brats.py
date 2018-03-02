@@ -107,12 +107,12 @@ def GetDataset(fold, num_fold, need_train=True, need_val=True):
             train_folders.append(folder)
     #train_folders = folders_HGG[:2] + folders_LGG[:2]
     #val_folders = folders_HGG[-2:] + folders_LGG[-2:]
-    if need_train:
+    if need_train and len(train_folders)>0:
         train_dataset = BRATSDataset(train_folders, is_train=True,
                 sample_shape=(128,128,12))
     else:
         train_dataset = None
-    if need_val:
+    if need_val and len(val_folders)>0:
         val_dataset = BRATSDataset(val_folders, is_train=False)
     else:
         val_dataset = None
@@ -122,7 +122,8 @@ if __name__ == '__main__':
     fold = int(sys.argv[1])
     train_dataset, val_dataset = GetDataset(fold, num_fold=5)
     print('number of training %d' % len(train_dataset))
-    print('number of validation %d' % len(val_dataset))
+    if val_dataset is not None:
+        print('number of validation %d' % len(val_dataset))
     #net = VoxResNet_V0(4, 5)
     net = RefineNet(4,5)
     #net = VoxResNet_V1(4, 5)
