@@ -1,5 +1,6 @@
 import sys
 import os
+import time
 
 import torch
 import torch.nn as nn
@@ -28,12 +29,18 @@ def Evaluate(net, dataset, data_name):
     evaluator_complete = [ EvalDiceScore(), EvalSensitivity(), EvalPrecision() ]
     evaluator_core = [ EvalDiceScore(), EvalSensitivity(), EvalPrecision()  ]
     evaluator_enhancing = [ EvalDiceScore(), EvalSensitivity(), EvalPrecision() ]
-    for i, (volume, label) in enumerate(dataset):
+    total_time = 0
+    for i in range(len(dataset)):
+        start = time.time()
+        volume, label = dataset[i]
         print('processing %d/%d' % (i, len(dataset)))
         volume = Variable(volume, volatile=True).cuda()
         label = label.cuda()
         predict = SplitAndForward(net, volume, 31)
         predict = torch.max(predict, dim=1)[1] 
+        end = time.time()
+        print('timing %f' % (end-start))
+        total_time += end-start
         predict = predict.long()
         label = label.long()
         # core
@@ -51,6 +58,7 @@ def Evaluate(net, dataset, data_name):
         label_complete = label > 0
         for evaluator in evaluator_complete:
             evaluator.AddResult(predict_complete, label_complete)
+    print('avg time %f' % total/(len(dataset)-1))
     eval_dict = {}
     for evaluator in evaluator_core:
         eval_value = evaluator.Eval()
