@@ -2,6 +2,7 @@ import os
 import sys
 import time
 import pickle
+import threading
 
 import torch
 import torch.nn as nn
@@ -17,7 +18,7 @@ from vox_resnet import VoxResNet_V1
 from refine_net import RefineNet
 from dataset import BRATSDataset
 from train_brats import SplitAndForward, GetDataset
-import pdb
+from dataset import DrawLabel
 
 def LoadFlair(data_root):
     folders = os.listdir(data_root)
@@ -45,37 +46,64 @@ def Cvt2Mha(predict, folder):
     mha_data = sitk.GetImageFromArray(predict)
     return mha_data
 
-def Evaluate(net, dataset, output_dir, vis=False):
+def PredictWorker(net, volume, cuda_id, result, lock):
     net.eval()
-    net.cuda()
+    net.cuda(cuda_id)
+    volume = volume.cuda(cuda_id)
+    predict = SplitAndForward(net, volume, 31)
+    predict = F.softmax(Variable(predict.squeeze()), dim=0).data
+    with lock:
+        result[cuda_id] = predict
+
+def Evaluate(nets, dataset, output_dir):
     dataset.eval()
     for i, (volume, _) in enumerate(dataset):
         folder = dataset.folders[i]
         print('processing %s' % folder)
-        volume = Variable(volume, volatile=True).cuda()
-        predict = SplitAndForward(net, volume, 31)
-        predict = torch.max(predict.squeeze(), dim=0)[1] 
+        volume = Variable(volume, volatile=True)
+        lock = threading.Lock()
+        result = {}
+        if len(nets) > 1:
+            threads = [ threading.Thread(target=PredictWorker, args=(net, volume, i, result, lock))
+                    for i, net in enumerate(nets) ]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join()
+            predict = result[0]
+            for i in range(1, len(nets)):
+                predict += result[i].cuda(0)
+        else:
+            PredictWorker(nets[0], volume, 0, result, lock)
+            predict = result[0]
+        predict = torch.max(predict, dim=0)[1] 
         predict = predict.cpu().numpy()
         print(predict.shape)
         # save result
-        mha_data = Cvt2Mha(predict, folder)
-        mha_file = 'VSD.%s.%s.mha' % (folder.split('/')[-1], GetSMIR_ID(folder))
-        sitk.WriteImage(mha_data, os.path.join(output_dir, mha_file))
-        if vis:
-            predict = mha_data.get_data()
-            for i in range(predict.shape[2]):
-                pred = predict[:, :, i].astype(np.uint8)
-                cv2.imshow('pred', pred*255)
-                cv2.waitKey()
+        if output_dir is not None:
+            mha_data = Cvt2Mha(predict, folder)
+            mha_file = 'VSD.%s.%s.mha' % (folder.split('/')[-1], GetSMIR_ID(folder))
+            sitk.WriteImage(mha_data, os.path.join(output_dir, mha_file))
+        else:
+            for i in range(predict.shape[0]):
+                pred = DrawLabel(predict[i, :, :], 4)
+                cv2.imwrite('./image/test/%03d_pred.jpg' % i, pred)
+                cv2.imshow('pred', pred)
+                cv2.waitKey(50)
 
 def GetTestData(test_set):
     if test_set == 'test':
+        # testing data
         data_root = './data/BRATS/test/HGG_LGG/'
         folders = [ os.path.join(data_root, folder) for folder in sorted(os.listdir(data_root)) ]
         test_dataset = BRATSDataset(folders,  is_train=False)
-    else:
+    elif test_set.isdigit():
+        # training data
         test_set = int(test_set)
         _, test_dataset = GetDataset(test_set, num_fold=5, need_train=False, need_val=True)
+    else:
+        # single data
+        test_dataset = BRATSDataset([test_set],  is_train=False)
     return test_dataset
 
 def GetModel(model_file):
@@ -88,10 +116,10 @@ def GetModel(model_file):
     return net
 
 if __name__ == '__main__':
-    model_file = sys.argv[1]
+    model_files = sys.argv[1]
     test_set = sys.argv[2]
 
-    net = GetModel(model_file)
+    nets = [GetModel(model_file) for model_file in model_files.split(',')]
     print("load net done.")
 
     # train_dataset, val_dataset = GetDataset()
@@ -99,10 +127,13 @@ if __name__ == '__main__':
     print("get data done.")
     #test_dataset.eval()
 
-    output_dir = os.path.join('./result_BRATS', test_set)
-    try:
-        os.makedirs(output_dir)
-    except:
-        pass
-    Evaluate(net, test_dataset, output_dir)
+    if test_set.isdigit() or test_set == 'test':
+        output_dir = os.path.join('./result_BRATS', test_set)
+        try:
+            os.makedirs(output_dir)
+        except:
+            pass
+    else:
+        output_dir = None 
+    Evaluate(nets, test_dataset, output_dir)
 
