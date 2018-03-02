@@ -27,7 +27,7 @@ class EvalPrecision(object):
     def AddResult(self, predict, target):
         tp = get_tp(target, predict)
         fp = get_fp(target, predict, tp)
-        if tp+tp == 0:
+        if tp+fp == 0:
             return
         precision = 1.0*tp/(tp+fp)
         self.sum_score += precision
