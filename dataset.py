@@ -85,14 +85,16 @@ def Normalize(data_list, means, norm):
     return ndata_list, means, norm
 
 def Mode(data, factor=16):
-    data = (data/factor).astype(np.int32)
     num_chns = data.shape[3]
     modes = []
     for i in range(num_chns):
-        vals, counts = np.unique(data[:,:,:,i], return_counts=True)
+        factor_i = factor if type(factor) is int else factor[i]
+        cdata = (data[:,:,:,i]/factor_i).astype(np.int32)
+        vals, counts = np.unique(cdata, return_counts=True)
+        #print(vals)
         for val in vals[counts.argsort()][::-1]:
             if val != 0:
-                modes.append(val*factor)
+                modes.append(val*factor_i)
                 break
     return np.array(modes)
 
@@ -149,7 +151,7 @@ def Visualize(person_data):
         if groundtruth:
             ot_data = normalize_data['OT'][:,:, i] 
             gt = (ot_data>0).astype(np.uint8) # TODO assume 0 is background class
-            contours,_ = cv2.findContours(gt.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+            _,contours,_ = cv2.findContours(gt.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
             ot_data = DrawLabel(ot_data, 4)
         # split images
         imgs = {}
@@ -230,13 +232,25 @@ class ScanDataset(Dataset):
 class ISLESDataset(ScanDataset):
     def __init__(self, folders, sample_shape=(96,96,5), means=None, norm=None, is_train=False):
         self.name = 'ISLES'
+        means = np.array([[[[106.66500854, 120.35639954, 84.71752167, 161.64039612,
+            1.0797298, 5.50123453, 1.25765181, 3.94124436, 0.37995237]]]], dtype=np.float32)
+        norm = np.array([[[[175.48779297, 198.6789093, 139.67434692, 269.49835205,
+            1.82358336, 9.1277914, 2.15573621, 7.01004076, 0.69785762]]]], dtype=np.float32)
         super(ISLESDataset, self).__init__(folders, sample_shape, means, norm, is_train)
 
     def load_data(self, folders):
-        data_list = [LoadOnePersonNii(folder) for folder in folders]
-        data_list = [StackData(data) for data in data_list]
-        label_list = [data[1] for data in data_list]
-        data_list = [data[0] for data in data_list]
+        data_list = []
+        label_list = []
+        for folder in folders:
+            print('loading %s' % folder)
+            data = LoadOnePersonNii(folder)
+            data, label = StackData(data)
+            #mode = Mode(data, factor=[16,4,4,4,4,1])
+            #print(data.shape, mode.shape)
+            #print(mode, np.max(data, axis=(0,1,2)), np.min(data, axis=(0,1,2)))
+            #data = data/mode.reshape(1,1,1,data.shape[-1])
+            data_list.append(data)
+            label_list.append(label)
         return data_list, label_list
 
 class BRATSDataset(ScanDataset):
@@ -259,9 +273,9 @@ class BRATSDataset(ScanDataset):
                 npzfile = np.load(cache_file+'.npz')
                 data = npzfile['data']
                 label = npzfile['label'] if 'label' in npzfile else None
-                mode = Mode(data)
+                #mode = Mode(data)
                 #print(mode, np.max(data, axis=(0,1,2)))
-                data = data/mode.reshape(1,1,1,4)
+                #data = data/mode.reshape(1,1,1,4)
             else:
                 data = LoadOnePersonMha(folder)
                 data, label = StackData(data)
@@ -278,7 +292,7 @@ class BRATSDataset(ScanDataset):
 
 def test_visulize():
     root = sys.argv[1]
-    data = LoadOnePersonMha(root)
+    data = LoadOnePersonNii(root)
     for img_type, img_data in data.items():
         print(img_type, img_data.shape)
     Visualize(data)

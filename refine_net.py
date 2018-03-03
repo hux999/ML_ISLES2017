@@ -56,9 +56,9 @@ class NonLocalBlock(nn.Module):
         return self.h(torch.matmul(x_g, x_f).view(N, C/2, D, H, W))  +  x
 
 class RefineNet(VoxResNet):
-    def __init__(self, in_channels, num_classes):
+    def __init__(self, in_channels, num_classes, dropout=False):
         super(RefineNet, self).__init__(in_channels, num_classes, [32,64,128,256])
-
+        self.dropout = dropout
         ftr_size = 128
 
         # adaptive 
@@ -66,6 +66,13 @@ class RefineNet(VoxResNet):
         self.adaptive2 = nn.Conv3d(64, ftr_size, kernel_size=1)
         self.adaptive3 = nn.Conv3d(128, ftr_size, kernel_size=1)
         self.adaptive4 = nn.Conv3d(256, ftr_size, kernel_size=1)
+
+        # dropout
+        if self.dropout:
+            self.dropout1 = nn.Dropout3d()
+            self.dropout2 = nn.Dropout3d()
+            self.dropout3 = nn.Dropout3d()
+            self.dropout4 = nn.Dropout3d()
 
         # output conv
         self.smooth1 = nn.Conv3d(ftr_size, ftr_size, kernel_size=3, padding=1)
@@ -96,6 +103,12 @@ class RefineNet(VoxResNet):
         h2 = self.adaptive2(F.relu(h2, inplace=False))
         h3 = self.adaptive3(F.relu(h3, inplace=False))
         h4 = self.adaptive4(F.relu(h4, inplace=False))
+
+        if self.dropout:
+            h1 = self.dropout1(h1)
+            h2 = self.dropout2(h2)
+            h3 = self.dropout3(h3)
+            h4 = self.dropout4(h4)
 
         p4 = h4
         p3 = self.upsample_3d(p4, 2) + h3
