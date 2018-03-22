@@ -11,11 +11,22 @@ from solver import Solver, SegLoss
 
 from vox_resnet import VoxResNet_V0, VoxResNet_V1
 from refine_net import RefineNet
+from dense_net import DenseNet
 from dataset import ISLESDataset
 from evaluator import EvalDiceScore, EvalSensitivity, EvalPrecision
 
 from FocalLoss import FocalLoss
 
+def DiceLoss(predict, label):
+    cse_loss = F.cross_entropy(predict, label)
+    probs = F.softmax(predict, dim=1)[:, 1]
+    label = label.float()
+    num = torch.sum(probs*label)
+    den1 = torch.sum(probs*probs)
+    den2 = torch.sum(label)
+    smooth = 1
+    dice_loss = 1.0-(2.0*num+smooth)/(den1+den2+smooth)
+    return cse_loss + dice_loss*0.1
 
 def Evaluate(net, dataset, data_name):
     net.eval()
@@ -40,7 +51,7 @@ def Evaluate(net, dataset, data_name):
 def Train(train_data, val_data, net, num_epoch, lr, output_dir):
     net = torch.nn.DataParallel(net, device_ids=[0, 1])
     solver = Solver(net, train_data, 0.0001, output_dir)
-    solver.criterion = lambda p,t: SegLoss(p, t, num_classes=2)
+    solver.criterion = lambda p,t: SegLoss(p, t, num_classes=2, loss_fn=DiceLoss)
     solver.iter_per_sample = 100
     for i_epoch in range(0, num_epoch, solver.iter_per_sample):
         # train
@@ -55,10 +66,12 @@ def Train(train_data, val_data, net, num_epoch, lr, output_dir):
         
         # val
         if i_epoch % 100 == 0:
+            '''
             print('val')
             eval_dict_val = Evaluate(net, val_data, 'val')
             for key, value in eval_dict_val.items():
                 solver.writer.add_scalar(key, value, i_epoch)
+            '''
             '''
             print('train')
             eval_dict_train = Evaluate(net, train_data, 'train')
@@ -94,6 +107,7 @@ if __name__ == '__main__':
     if val_dataset is not None:
         print('number of validation %d' % len(val_dataset))
     net = RefineNet(9, 2, dropout=False)
+    #net = DenseNet(9, 2)
 
     output_dir = './output/isles_%d' % fold
     try:

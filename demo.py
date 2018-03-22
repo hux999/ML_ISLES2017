@@ -12,7 +12,6 @@ from torch.autograd import Variable
 
 from vox_resnet import VoxResNet_V1, VoxResNet_V0
 from refine_net import RefineNet
-from train import GetDataset
 from test import GetTestData
 
 def LoadADC(data_root):
@@ -84,18 +83,21 @@ def Demo(net, dataset, use_cuda):
             img_list.append(pred)
             cv2.imwrite('image/%03d_%03d.jpg' % (i,j), np.concatenate(img_list,axis=1))
 
+def GetModel(model_file):
+    net = RefineNet(9,2)
+    state_dict = torch.load(model_file)
+    rename_state_dict = {}
+    for key, value in state_dict.items():
+        rename_state_dict['.'.join(key.split('.')[1:])] = value
+    net.load_state_dict(rename_state_dict)
+    return net
 
 if __name__ == '__main__':
-    train_dataset,val_dataset = GetDataset()
-    #test_dataset = GetTestData()
+    model_file = sys.argv[1]
+    test_set = sys.argv[2]
+      
+    net = GetModel(model_file)
 
-    net = VoxResNet_V1(7, 2)
-    net.load_state_dict(torch.load('./model/max_fscore.pt'))
-
-    #net = VoxResNet_V0(7, 2)
-    #net.load_state_dict(torch.load('./model/voxresnet/max_fscore.pt'))
-
-    #net = RefineNet(7, 2)
-    #net.load_state_dict(torch.load('./model/refine_net/max_fscore.pt'))
+    val_dataset = GetTestData(test_set)
 
     Demo(net, val_dataset, True)

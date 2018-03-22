@@ -16,9 +16,8 @@ import math
 
 from vox_resnet import VoxResNet_V1
 from refine_net import RefineNet
-from dataset import BRATSDataset
+from dataset import BRATSDataset, DrawLabel
 from train_brats import SplitAndForward, GetDataset
-from dataset import DrawLabel
 
 def LoadFlair(data_root):
     folders = os.listdir(data_root)

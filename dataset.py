@@ -11,7 +11,7 @@ from scipy import stats
 import torch
 from torch.utils.data import Dataset 
 
-from preprocess import ReColor,RandomRotate,SampleVolume,CurriculumWrapper
+from preprocess import *
 
 def LoadOnePersonNii(data_root):
     folders = os.listdir(data_root)
@@ -247,7 +247,8 @@ class ISLESDataset(ScanDataset):
             data, label = StackData(data)
             #mode = Mode(data, factor=[16,4,4,4,4,1])
             #print(data.shape, mode.shape)
-            #print(mode, np.max(data, axis=(0,1,2)), np.min(data, axis=(0,1,2)))
+            #print(data.shape)
+            #print(np.max(data, axis=(0,1,2)), np.min(data, axis=(0,1,2)))
             #data = data/mode.reshape(1,1,1,data.shape[-1])
             data_list.append(data)
             label_list.append(label)

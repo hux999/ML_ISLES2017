@@ -57,6 +57,17 @@ class SampleVolume:
         sub_label = label[h:h+dst_h,w:w+dst_w,d:d+dst_d]
         return sub_volume,sub_label
 
+class RandomNoise:
+    def __init__(self, norm, mean=0):
+        self.norm = norm
+        self.mean = mean
+
+    def __call__(self, im):
+        mean = 2*random.random()*self.mean - self.mean
+        noise = np.random.normal(loc=mean, scale=self.norm, size=im.shape)
+        return im + noise
+
+
 class ScaleAndPad:
     def __init__(self, dst_size, rand_pad=False):
         self.dst_size = dst_size
@@ -78,7 +89,7 @@ class ScaleAndPad:
         return new_im, new_mask
 
 class RandomJitter:
-    def __init__(self, max_angle=180, max_scale=0.1):
+    def __init__(self, max_angle=5, max_scale=0.1):
         self._max_angle = max_angle
         self._max_scale = max_scale
 
