@@ -49,13 +49,14 @@ class Solver(object):
         batch_data = DataLoader(self.dataset, batch_size=batch_size, shuffle=True, 
                 num_workers=batch_size/2, collate_fn=CollateFn(), pin_memory=True)
         for i_batch, (volume, target) in enumerate(batch_data):
-            self.num_iter += batch_size 
+            self.num_iter += 1
             volume = Variable(volume).cuda()
             target = Variable(target).cuda()
             # forward
             predict = self.net(volume)
             loss = self.criterion(predict, target)
             self.writer.add_scalar('loss', loss.data[0], self.num_iter)
+            print('epoch: %d, batch %d: %0.5f' % (self.num_epoch, i_batch, loss.data[0]))
             # backward
             loss.backward()
             if i_batch % iter_size == 0:
