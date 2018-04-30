@@ -55,7 +55,7 @@ class Solver(object):
             # forward
             predict = self.net(volume)
             loss = self.criterion(predict, target)
-            self.writer.add_scalar('loss', loss.data[0], self.num_iter)
+            self.writer.add_scalar('loss', loss.item(), self.num_iter)
             # backward
             loss.backward()
             if i_batch % iter_size == 0:
@@ -63,7 +63,7 @@ class Solver(object):
                 self.optimizer.zero_grad()
         self.writer.file_writer.flush()
         self.num_epoch += self.iter_per_sample
-        return loss.data[0]
+        return loss.item()
 
     def create_optimizer(self, lr):
         optimizer = torch.optim.Adam(self.net.parameters(), lr=lr)
