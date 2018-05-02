@@ -118,7 +118,11 @@ if __name__ == '__main__':
     model_files = sys.argv[1]
     test_set = sys.argv[2]
 
-    nets = [GetModel(model_file) for model_file in model_files.split(',')]
+    if os.path.isdir(model_files):
+        nets = [ GetModel(os.path.join(model_files, model_file))
+                for model_file in  os.listdir(model_files) ]
+    else:
+        nets = [GetModel(model_file) for model_file in model_files.split(',')]
     print("load net done.")
 
     # train_dataset, val_dataset = GetDataset()
