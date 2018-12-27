@@ -7,7 +7,6 @@ import threading
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.autograd import Variable
 
 import SimpleITK as sitk
 import cv2
@@ -49,17 +48,17 @@ def PredictWorker(net, volume, cuda_id, result, lock):
     net.eval()
     net.cuda(cuda_id)
     volume = volume.cuda(cuda_id)
-    predict = SplitAndForward(net, volume, 31)
-    predict = F.softmax(Variable(predict.squeeze()), dim=0).data
+    with torch.no_grad():
+        predict = SplitAndForward(net, volume, 31)
+        predict = F.softmax(predict.squeeze(), dim=0)
     with lock:
-        result[cuda_id] = predict
+        result[cuda_id] = predict.detach()
 
 def Evaluate(nets, dataset, output_dir):
     dataset.eval()
     for i, (volume, _) in enumerate(dataset):
         folder = dataset.folders[i]
         print('processing %s' % folder)
-        volume = Variable(volume, volatile=True)
         lock = threading.Lock()
         result = {}
         if len(nets) > 1:
